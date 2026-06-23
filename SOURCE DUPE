@@ -1,0 +1,198 @@
+-- Put this inside a LocalScript in StarterPlayerScripts
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+------------------------------------------------------------------------
+-- 1. PREMIUM CENTERED & DRAGGABLE UI CREATION
+------------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "GardenClonerGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Main Menu Frame (Centered Container)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 320, 0, 210)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -105) -- Perfectly Centered initially
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 16)
+frameCorner.Parent = mainFrame
+
+-- Soft Border Stroke for the Main Frame
+local frameStroke = Instance.new("UIStroke")
+frameStroke.Thickness = 1.5
+frameStroke.Color = Color3.fromRGB(45, 45, 55)
+frameStroke.Parent = mainFrame
+
+-- DEDICATED DRAG HANDLE (Top half of the GUI is the steering wheel)
+local dragHandle = Instance.new("TextButton")
+dragHandle.Name = "DragHandle"
+dragHandle.Size = UDim2.new(1, 0, 0, 75)
+dragHandle.Position = UDim2.new(0, 0, 0, 0)
+dragHandle.BackgroundTransparency = 1
+dragHandle.Text = ""
+dragHandle.Parent = mainFrame
+
+-- Headline Title: 🌱GROW A GARDEN 2🌸
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(1, 0, 0, 45)
+titleLabel.Position = UDim2.new(0, 0, 0, 15)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🌱GROW A GARDEN 2🌸"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 22
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = dragHandle
+
+-- Decorative Neon Line under title
+local line = Instance.new("Frame")
+line.Size = UDim2.new(0, 80, 0, 3)
+line.Position = UDim2.new(0.5, -40, 0, 60)
+line.BackgroundColor3 = Color3.fromRGB(0, 210, 255)
+line.BorderSizePixel = 0
+line.Parent = mainFrame
+
+-- The Action Button Container (For smooth hover popping effect)
+local buttonContainer = Instance.new("Frame")
+buttonContainer.Name = "ButtonContainer"
+buttonContainer.Size = UDim2.new(0, 200, 0, 48)
+buttonContainer.Position = UDim2.new(0.5, -100, 0, 90)
+buttonContainer.BackgroundTransparency = 1
+buttonContainer.Parent = mainFrame
+
+-- The Action Button (Clones held item)
+local cloneButton = Instance.new("TextButton")
+cloneButton.Name = "CloneButton"
+cloneButton.Size = UDim2.new(1, 0, 1, 0)
+cloneButton.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+cloneButton.AutoButtonColor = false
+cloneButton.Text = "DUPLICATE"
+cloneButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+cloneButton.TextSize = 14
+cloneButton.Font = Enum.Font.GothamBold
+cloneButton.Parent = buttonContainer
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 10)
+btnCorner.Parent = cloneButton
+
+-- Premium Gradient Border for Button
+local btnStroke = Instance.new("UIStroke")
+btnStroke.Thickness = 2
+btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+btnStroke.Parent = cloneButton
+
+local uiGradient = Instance.new("UIGradient")
+uiGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 210, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 0, 255))
+}
+uiGradient.Parent = btnStroke
+
+-- Subtitle Credits at the Bottom
+local creditsLabel = Instance.new("TextLabel")
+creditsLabel.Name = "CreditsLabel"
+creditsLabel.Size = UDim2.new(1, 0, 0, 25)
+creditsLabel.Position = UDim2.new(0, 0, 1, -35)
+creditsLabel.BackgroundTransparency = 1
+creditsLabel.Text = "Made By: GRIND"
+creditsLabel.TextColor3 = Color3.fromRGB(130, 130, 145)
+creditsLabel.TextSize = 12
+creditsLabel.Font = Enum.Font.GothamMedium
+creditsLabel.Parent = mainFrame
+
+------------------------------------------------------------------------
+-- 2. ULTRA-RESPONSIVE DRAG SYSTEM
+------------------------------------------------------------------------
+local dragging = false
+local dragStart, startPos
+
+dragHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if dragging then
+        local mousePos = UserInputService:GetMouseLocation()
+        -- Offset mapping to accommodate TopBar offset shifts in screen spaces
+        local delta = Vector2.new(mousePos.X - dragStart.X, mousePos.Y - dragStart.Y - 36) 
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+------------------------------------------------------------------------
+-- 3. CLIENT-ONLY VISUAL CLONING CORE FUNCTION
+------------------------------------------------------------------------
+local function cloneHeldItem()
+    local character = player.Character
+    if character then
+        local heldItem = character:FindFirstChildOfClass("Tool")
+        
+        if heldItem then
+            local backpack = player:FindFirstChild("Backpack")
+            if backpack then
+                local originalArchivable = heldItem.Archivable
+                heldItem.Archivable = true
+                
+                local clonedTool = heldItem:Clone()
+                clonedTool.Parent = backpack
+                
+                heldItem.Archivable = originalArchivable
+                print("DUPED: " .. heldItem.Name)
+            end
+        else
+            print("Action failed: You must hold an item first!")
+        end
+    end
+end
+
+------------------------------------------------------------------------
+-- 4. INTERACTION ANIMATIONS & KEYBINDS
+------------------------------------------------------------------------
+local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+cloneButton.MouseEnter:Connect(function()
+    TweenService:Create(cloneButton, tweenInfo, {BackgroundColor3 = Color3.fromRGB(35, 35, 48)}):Play()
+    TweenService:Create(buttonContainer, tweenInfo, {Size = UDim2.new(0, 206, 0, 52), Position = UDim2.new(0.5, -103, 0, 88)}):Play()
+end)
+
+cloneButton.MouseLeave:Connect(function()
+    TweenService:Create(cloneButton, tweenInfo, {BackgroundColor3 = Color3.fromRGB(25, 25, 35)}):Play()
+    TweenService:Create(buttonContainer, tweenInfo, {Size = UDim2.new(0, 200, 0, 48), Position = UDim2.new(0.5, -100, 0, 90)}):Play()
+end)
+
+cloneButton.MouseButton1Down:Connect(function()
+    TweenService:Create(cloneButton, tweenInfo, {BackgroundColor3 = Color3.fromRGB(15, 15, 22)}):Play()
+    cloneHeldItem()
+end)
+
+cloneButton.MouseButton1Up:Connect(function()
+    TweenService:Create(cloneButton, tweenInfo, {BackgroundColor3 = Color3.fromRGB(35, 35, 48)}):Play()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        cloneHeldItem()
+    end
+end)
